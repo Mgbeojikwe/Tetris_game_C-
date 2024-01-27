@@ -3,8 +3,9 @@
 
 To run this code following the steps:
 
-step 1 =>  run $bash build.bash
-step 2 => run  $./a.out
+step 1:  run $bash build.bash
+
+step 2 : run  $./a.out
 
 .............Scope of source code............. This was designed by creating two classes "Shape" and "Tetris" written in shape.h and tetris.h files respectively. The classes are connected by the "composition" interaction route in which object of "Shape" class is created and made an instance attribute in the "Tetris" class.
 
