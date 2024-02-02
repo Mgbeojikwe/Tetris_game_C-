@@ -7,6 +7,8 @@ step 1:  run $bash build.bash
 
 step 2 : run  $./a.out
 
+A visual sample of this game is found in the url https://github.com/Mgbeojikwe/Tetris_game_C-/blob/main/simplescreenrecorder-2024-01-16_17.22.40.mp4  download the mp4 video by clicking on "View raw"
+
 .............Scope of source code............. This was designed by creating two classes "Shape" and "Tetris" written in shape.h and tetris.h files respectively. The classes are connected by the "composition" interaction route in which object of "Shape" class is created and made an instance attribute in the "Tetris" class.
 
 1.0 Shape class
