@@ -66,7 +66,7 @@ class Tetris {
 
                 int j{0};
 
-                for( size_t i{0}; i<=size; i++){
+                for( size_t i{0}; i<size; i++){
 
                       container.push_back(j);
                       j+=PIXEL_SIZE;    
@@ -82,7 +82,7 @@ class Tetris {
        fill_board_replica_axes(max_X_length, board_replicaX);
        fill_board_replica_axes(max_Y_length, board_replicaY);
 
-
+        
         vector<vector<int> >   var(max_Y_length, vector<int>(max_X_length,0));
         board_replica=var;
         board_replica.shrink_to_fit();
@@ -93,6 +93,7 @@ class Tetris {
         game_over = false;
 
          score = 0;
+          
         }
 
 
@@ -214,31 +215,33 @@ class Tetris {
       }
 
        
-       int place_boundary_condition( ){
+       std::tuple<int,int> place_boundary_condition( ){
 
 
                   // get the tipY, leastX  and fartherstX of the tetromino
                auto tipY =  std::max_element( tetromino_XY.begin(), tetromino_XY.end(), [] ( Vector2 part1 , Vector2 part2) { return part1.y < part2.y;});
-              auto [least_partX ,largest_partX] = std::minmax_element ( tetromino_XY. begin(), tetromino_XY.end(),[]( Vector2 part1,Vector2 part2){ return part1.x < part2.x;});
-               
+              auto largest_partX = std::max_element ( tetromino_XY. begin(), tetromino_XY.end(),[]( Vector2 part1,Vector2 part2){ return part1.x < part2.x;});
+               auto least_partX  = std::min_element ( tetromino_XY.begin(), tetromino_XY.end(), [](Vector2  part1, Vector2 part2){ return part1.x < part2.x ; });
+           
            switch (direction) {
 
                 case 'D':
-                      return (*tipY).y;
+                      return {(*tipY).y,0};
                       break;
                 case 'L':
                       
-                      return (*least_partX).x;
+                      return {(*least_partX).x,0};
                       break;
                 case  'R':
                       
-                      return (*largest_partX).x;
+                      return {(*largest_partX).x,0};
                       break;
+                 
+                 case 'U':
+                        return {(*least_partX).x, (*largest_partX).x};
            }
 
-          return 0;
-
-
+          
         }
 
             void create_container_of_obstructing_part(){
@@ -271,17 +274,15 @@ class Tetris {
           auto temporary_XY = tetromino_XY;   
 
 
-          switch (direction) {
-
-            case 'D':
+            if (direction == 'D'){
 
               direction2D = {0, PIXEL_SIZE};
               
               alter_tetromino_position_L_R_or_D(direction2D);
 
-              foremost_partY = place_boundary_condition();
+              auto[foremost_partY, var] = place_boundary_condition();
               
-              if ( (foremost_partY  > (game_heigth- (2*PIXEL_SIZE)) ) || tetromino_on_top_another_tetromino() == true  ) {    // it tetromino reaches game bottom
+              if ( (foremost_partY  > (game_heigth- 2*PIXEL_SIZE ) ) || tetromino_on_top_another_tetromino() == true  ) {    // it tetromino reaches game bottom
               
                         tetromino_XY = temporary_XY;
                         label_board_replica();        // label board replica
@@ -302,48 +303,59 @@ class Tetris {
             
               else 
                         a_new_tetromino_generated = false;
+            }
             
-             break;
 
-            case 'L':
+            else if (direction == 'L'){
 
+            
                  direction2D = {-PIXEL_SIZE,0};
 
                  alter_tetromino_position_L_R_or_D(direction2D);
                  
-                smallest_partX = place_boundary_condition();
+                auto[smallest_partX, var] = place_boundary_condition();
             
                   // if (smallest_partX < (-PIXEL_SIZE)  ||  tetromino_touches_another_by_the_side( )== true)   // placing boundary condition at the left
+            
                   if (smallest_partX  < 0  ||  tetromino_touches_another_by_the_side( )== true)   // placing boundary condition at the left
 
                         tetromino_XY =  temporary_XY;
 
-                  break;
+            
+            }
 
-            case 'R':
+            else if (direction == 'R') {
 
               direction2D = {PIXEL_SIZE,0};
 
                  alter_tetromino_position_L_R_or_D(direction2D);
 
-                 far_right_partX = place_boundary_condition();
+                 auto[far_right_partX, var] = place_boundary_condition();
 
                 if (far_right_partX > (game_width - PIXEL_SIZE)  ||  tetromino_touches_another_by_the_side( )== true)  // placing boundary condition at the right side of game board
              
                        tetromino_XY = temporary_XY; 
-                break;
+              
+            }
             
-            case 'U':
-
+            else if (direction == 'U') {
+            
                   rotate_tetromino();
-                  
-                  break;
 
-          }
+                  // AFter rotating we need to palce boundary condtion to ensure tetromino
+                  // doesn't leave the canvas
+                  auto[far_leftX_after_rotation, far_right_partX_rotation] = place_boundary_condition();
+                  
+                  if ( far_leftX_after_rotation < 0  || far_right_partX_rotation > (game_heigth -PIXEL_SIZE))
+
+                           tetromino_XY =   temporary_XY;
+            
+            }
 
           direction='D';  // returning to default value so that the tetromino always moves downwards
           
           }
+
 
 
   bool      tetromino_on_top_another_tetromino() {
@@ -390,31 +402,56 @@ class Tetris {
                 Thus this method is called after movement of the tetromino.
               
               */           
+                    // direction is netiher 'L'  nor 'R'
+
+                      vector<int>  partsX{};
+
+                for( auto part: tetromino_XY)
+                       partsX.push_back( part.x);
+                
+                auto[min_X,max_X] = std::minmax_element(partsX.begin(), partsX.end());  //get the two tetromino parts that are
+                                                                                    // leftmost and rightmost on the canvas
+
+                if (direction == 'L'){
                   
+                  //on getting this minimum, we have to find its y-axis.
 
-          auto[min, max] = std::minmax_element(tetromino_XY.begin(), tetromino_XY.end(),[]( Vector2 part1, Vector2 part2){
+                  for( auto part: tetromino_XY){
 
-                              return part1.x < part2.x;
-            });
-
-          Vector2 min_part =  *min;
-           Vector2  max_part = *max;
-
-
-           if (direction == 'L'){
-            auto[row_index_value, column_index_value]  = get_tetromino_part_row_and_column_indexes(min_part);
-                     
-                     if ( board_replica[row_index_value][column_index_value] == 1)
-                              return true;
-
-           }
-
-           else if (direction == 'R'){
-                   auto[row_index2,column_index2] = get_tetromino_part_row_and_column_indexes(max_part);
-                       
-                       if (board_replica[row_index2][column_index2]==1)
+                      if ( part.x ==  *min_X){
+                           
+                             auto [row_index, column_index] = get_tetromino_part_row_and_column_indexes(part);
+                             
+                             if (board_replica[row_index][column_index]==1)
                                     return true;
-           }
+                      
+                      }
+                      else  
+                          continue; 
+
+                  }
+
+                  return false;  // return false if tetromino is not touching another by the left
+                    
+                }
+              
+
+              else if (direction == 'R'){   
+
+
+                for (auto part: tetromino_XY){
+                    
+                    if (part.x == *max_X){
+                           auto [row_index, column_index] = get_tetromino_part_row_and_column_indexes(part);
+                           
+                           if (board_replica[row_index][column_index] == 1)
+                                    return true;
+                            else 
+                                continue;
+                    }
+                }
+
+              }
 
         }
         
@@ -435,65 +472,56 @@ class Tetris {
          }
 
 
-    void  pop_out_affected_parts ( int affected_part_Y_value){
-
-      /*
-            This method removes parts whose y-value corresponds to the completely filled row, form the 
-            "all_obstructing_tetrominos_parts".
-      */
-
-             vector<Vector2> parts{};
-             vector<Color>  parts_colors{};
-
-      // removing tetromino parts whose y-value corresponds to the y-value of the row to be cleared-off
-      //N:B: We would have used "std::copy_if" STL algorithm, but since we want to work of parts colors
-      //     we ddecided to utilize index-style for-loop
-
-              for (size_t i{0}; i < all_obstructing_tetrominos_parts.size(); i++){
-
-                     auto part       = all_obstructing_tetrominos_parts[i];
-                     Color part_color = all_obstructing_tetrominos_part_colors[i];
-                     int y= part.y;
-            
-                  if ( y != affected_part_Y_value){
-                        parts.push_back(part);
-                        parts_colors.push_back( part_color);
-                  }
-                     else 
-                           continue; 
-
-               }
-            
-                all_obstructing_tetrominos_parts =  parts;
-                all_obstructing_tetrominos_part_colors = parts_colors;
-    }
+         void   popout_parts_of_completely_filled_rows( vector<int> y_values_of_filled_rows){
 
 
-    void  move_left_over_parts_forward( int higher_row_index){
-            /*
-                  This method is applied if a given row has been cleaned-off from the canvas. 
-                  the left over parts are move forward by "PIXEL_SIZE". The parts moved are 
-                  those whose y-value equals the y-value at the "studied index"
-            */
-           int higher_row_y_value = board_replicaY[higher_row_index];
+                  for (size_t index{0}; index < all_obstructing_tetrominos_parts.size(); index ++){
 
-            for ( size_t i{0}; i < all_obstructing_tetrominos_parts.size(); i++){
+                       Vector2  part=  all_obstructing_tetrominos_parts[index];
 
-                        Vector2 part = all_obstructing_tetrominos_parts[i];
+                       int y = part.y;
 
-                        if ( part.y  == higher_row_y_value){
-                              
-                              all_obstructing_tetrominos_parts[i] = Vector2{part.x +0, part.y + PIXEL_SIZE};
+                       auto it = find(y_values_of_filled_rows.begin(), y_values_of_filled_rows.end(), y);
+
+                        if (it != y_values_of_filled_rows.end()) {  // if y-axis value of part is found in container 
+
+                                    all_obstructing_tetrominos_parts.erase( index + all_obstructing_tetrominos_parts.begin());
+                                    all_obstructing_tetrominos_part_colors.erase(index + all_obstructing_tetrominos_part_colors.begin());
                         }
-                        else 
-                              continue;
 
             }
-      }
+         }
+
+
+
+         void    move_left_over_parts_forward( int y_value_of_the_last_completely_filled_row){
+           
+
+            /*
+                  This method moves left-over parts above the completely-filled row(s) forward. This selective movement is important
+                  to ensure that only parts higher than the cleared row are moved; parts below that remove maintain their positions
+            */
+
+            for (size_t index{0}; index < all_obstructing_tetrominos_parts.size(); index ++){
+
+                 Vector2 part = all_obstructing_tetrominos_parts[index];
+            
+                 int y  = part.y;
+
+                 if (y < y_value_of_the_last_completely_filled_row)
+                          all_obstructing_tetrominos_parts[index] = Vector2{part.x, part.y + PIXEL_SIZE};
+
+                 else 
+                       continue;
+                        
+            }
+
+            }
 
 
 
     void remove_a_completely_filled_row_from_canvas(){
+      
       /*
       This method clears a completely filled row from the canvas via the following steps:
 
@@ -508,9 +536,12 @@ class Tetris {
             4) We all parts in the resulting "all_obstructing_tetromino_parts " forward by "PIXEL_SIZE"
             5)we then print all parts in the resulting "all_obstructing_tetromino_parts" to the canvas
 
-            */
+      */
+
+            vector<int> y_values_of_affected_rows{};
 
              size_t last_index = board_replica.size()-1;
+
          
             for (size_t index{last_index}; index >0  ; index -- ){
                      
@@ -526,20 +557,15 @@ class Tetris {
 
                                     score+=10;                          //increase score by 10
 
+
                                     int affected_y_axis_value = board_replicaY[index];  // getting the y-value of the affected row
-                                    pop_out_affected_parts(affected_y_axis_value);  // removing obstructing parts whose y-value equals "affected_y_axis_value"
-                                  
+                                    y_values_of_affected_rows.push_back(affected_y_axis_value);
+
                                     // move all the higher rows downwards
                                     for (size_t j{index}; j > 0 ; j --){
 
                                                 board_replica[j] = board_replica[j-1];  //assigning the row at lower index (i.e higher placed row)
-                                                                                          // to that of higher index (i.e lower placed row) 
-
-                                                //move obstructing tetromino parts at the higher index foraward
-                                                // step "PIXEL_SIZE"
-                                               int higher_row_index_value=  j-1;
-                                                move_left_over_parts_forward(higher_row_index_value) ;
-
+                                                                                          // to that of higher index (i.e lower placed row)                                             
                                     }
 
                         }
@@ -547,7 +573,26 @@ class Tetris {
 
            }
 
+
+           if (y_values_of_affected_rows.size() >= 1) {    // if there exit completely filled rows; doing this optimize the spped of the code
+           
+                   auto it =  std::max(y_values_of_affected_rows.begin(), y_values_of_affected_rows.end());
+           
+                  int y_value_of_last_completely_filled_row = *it;
+
+
+                  // remove the parts that occupying the completely filled rows
+
+                  popout_parts_of_completely_filled_rows(y_values_of_affected_rows);
+                  move_left_over_parts_forward(y_value_of_last_completely_filled_row);
+           
+                  
+                  
+           }
+
+
     }
+
 
       
     void  clear_obstructing_tetrominos_from_canvas(){
@@ -562,7 +607,7 @@ class Tetris {
       }
 
    void reset_game(){
-
+            
 
             for (int row{0}; row < max_Y_length; row++){
                         for( int column{0}; column < max_X_length; column++){
@@ -575,10 +620,11 @@ class Tetris {
                                           continue;
                         }     
             }
-            score=0;
+            
             clear_obstructing_tetrominos_from_canvas();
 
             generate_new_tetromino();
+            score=0;
     }
 
 
@@ -601,12 +647,13 @@ class Tetris {
 
                else  if (game_over == true){
                        
-                        DrawText(text1,game_width +(3*PIXEL_SIZE), game_heigth/2,30,RED);
-                        DrawText(text2, 2*PIXEL_SIZE,(3*PIXEL_SIZE),30, WHITE);
-
+                        
                         print_spiral_shape_in_the_left_and_right_side();
                         std::thread thd{& Tetris::print_all_obstructing_tetromino_to_canvas, this};
                         thd.join();
+
+                        DrawText(text1,game_width +(3*PIXEL_SIZE), game_heigth/2,30,RED);
+                        DrawText(text2, 2*PIXEL_SIZE,(3*PIXEL_SIZE),30, WHITE);
 
                  }
 
@@ -647,10 +694,17 @@ class Tetris {
                                    int x = part.x;
                                    int y = part.y;
 
+                                   if ( y > game_heigth -2*PIXEL_SIZE){
+                                                all_obstructing_tetrominos_parts.erase(i + all_obstructing_tetrominos_parts.begin());
+                                                all_obstructing_tetrominos_part_colors.erase(i+ all_obstructing_tetrominos_part_colors.begin());
+                                   }
 
+                                   else{
                                    Color color =all_obstructing_tetrominos_part_colors[i];
 
                                   DrawRectangle(x+(PIXEL_SIZE-1), y+(PIXEL_SIZE-1), (PIXEL_SIZE-1), (PIXEL_SIZE-1), color);
+                        }
+                        
                         }
 
     }
@@ -692,6 +746,7 @@ class Tetris {
       return score;
   }
   
+ 
   
   void play(){
 
@@ -711,11 +766,13 @@ class Tetris {
            remove_a_completely_filled_row_from_canvas();
            print_spiral_shape_in_the_left_and_right_side();
            Game_over();
+
           }
           
-
           else{
+
             keyboard_press();
+
           }
 
   }
